@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Racing 3D</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100%;
+            background-color: #000;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.137.5/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.137.5/examples/js/loaders/GLTFLoader.js"></script>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.5); // Ambient light
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 1); // Directional light (sun)
+        directionalLight.position.set(5, 10, 5).normalize();
+        scene.add(directionalLight);
+
+        // Load F1 Car Model
+        const loader = new THREE.GLTFLoader();
+        let playerCar, aiCars = [];
+
+        // Function to generate a random color
+        function randomColor() {
+            return new THREE.Color(Math.random(), Math.random(), Math.random());
+        }
+
+        // Load the F1 car for the player
+        loader.load('path_to_your_f1_car_model.gltf', (gltf) => {
+            playerCar = gltf.scene;
+            playerCar.scale.set(0.2, 0.2, 0.2); // Scale down the car to fit the scene
+            playerCar.position.y = 0.5;
+            playerCar.material = new THREE.MeshStandardMaterial({
+                color: randomColor()  // Random color for the player's car
+            });
+            scene.add(playerCar);
+        });
+
+        // Load F1 cars for AI opponents
+        const numAiCars = 3;
+        for (let i = 0; i < numAiCars; i++) {
+            loader.load('path_to_your_f1_car_model.gltf', (gltf) => {
+                const aiCar = gltf.scene;
+                aiCar.scale.set(0.2, 0.2, 0.2);
+                aiCar.position.y = 0.5;
+                aiCar.angle = Math.random() * Math.PI * 2; // Random initial angle on the track
+                aiCar.speed = 0.1 + Math.random() * 0.1; // Random speed for AI car
+                aiCar.material = new THREE.MeshStandardMaterial({
+                    color: randomColor(), // Random color for AI cars
+                    metalness: 0.8,
+                    roughness: 0.4
+                });
+                scene.add(aiCar);
+                aiCars.push(aiCar);
+            });
+        }
+
+        // Create the oval road (track)
+        const roadGeometry = new THREE.CylinderGeometry(50, 50, 1, 100, 1, true); // Oval shape
+        const roadMaterial = new THREE.MeshStandardMaterial({
+            color: 0x444444, // Darker gray for the track
+            roughness: 1,
+            metalness: 0
+        });
+        const road = new THREE.Mesh(roadGeometry, roadMaterial);
+        road.rotation.x = Math.PI / 2; // Rotate the road to lay flat
+        road.position.y = -1; // Position the road below the car
+        scene.add(road);
+
+        // Background Skybox
+        const textureLoader = new THREE.TextureLoader();
+        const skyboxTexture = textureLoader.load('path_to_your_skybox_texture.jpg'); // Replace with your texture
+        scene.background = skyboxTexture;
+
+        // Camera position
+        camera.position.z = 10;
+        camera.position.y = 3;
+
+        // Movement variables
+        let carSpeed = 0.1;
+        let carAngle = 0;
+
+        // Event listeners for touch controls
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        window.addEventListener("touchstart", (e) => {
+            touchStartX = e.touches[0].clientX;
+        });
+
+        window.addEventListener("touchend", (e) => {
+            touchEndX = e.changedTouches[0].clientX;
+            if (touchEndX < touchStartX) {
+                carAngle += 0.05;  // Turn left
+            } else if (touchEndX > touchStartX) {
+                carAngle -= 0.05; // Turn right
+            }
+        });
+
+        // Animate the scene
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Move the player's car along the oval path
+            if (playerCar) {
+                playerCar.position.x = 50 * Math.cos(carAngle);
+                playerCar.position.z = 50 * Math.sin(carAngle);
+            }
+
+            // Move camera to follow the car
+            camera.position.x = playerCar.position.x + 10 * Math.cos(carAngle);
+            camera.position.z = playerCar.position.z + 10 * Math.sin(carAngle);
+            camera.lookAt(playerCar.position);
+
+            // Simulate road scrolling
+            road.rotation.z += 0.01; // Rotate road slightly for illusion of forward movement
+
+            // Animate the player's car speed and steering
+            carAngle += 0.01;
+
+            // AI Car Logic: AI cars follow the oval path
+            aiCars.forEach(aiCar => {
+                aiCar.angle += aiCar.speed * 0.02;  // AI car moves forward
+                aiCar.position.x = 50 * Math.cos(aiCar.angle);
+                aiCar.position.z = 50 * Math.sin(aiCar.angle);
+
+                // Randomize AI car behavior (slight random movement)
+                aiCar.speed += (Math.random() - 0.5) * 0.01; // Slight speed change
+                if (aiCar.speed < 0.05) aiCar.speed = 0.05; // Avoid going too slow
+                if (aiCar.speed > 0.2) aiCar.speed = 0.2; // Avoid going too fast
+            });
+
+            // Render the scene
+            renderer.render(scene, camera);
+        }
+
+        // Start the animation
+        animate();
+    </script>
+</body>
+</html>
